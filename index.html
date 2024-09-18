@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three.js GLB Children Control with Names</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      max-height: 100vh;
+      overflow-y: auto;
+      padding: 10px;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    .control-group {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h2>Model Controls</h2>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+
+  <script>
+    let model;
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lighting
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 10, 10).normalize();
+    scene.add(light);
+
+    // Load the GLB model
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      '1.glb',
+      function (gltf) {
+        model = gltf.scene;
+        scene.add(model);
+
+        // Clear existing controls
+        document.getElementById('controls').innerHTML = '<h2>Model Controls</h2>';
+
+        // Traverse the model's children and add controls
+        model.traverse(function (child) {
+          if (child.isMesh) {
+            const childName = child.name || `Unnamed Child (ID: ${child.id})`;
+            console.log(`Child: ${childName}`);
+            addControlsForChild(child, childName);
+          }
+        });
+      },
+      undefined,
+      function (error) {
+        console.error(error);
+      }
+    );
+
+    // Camera position
+    camera.position.z = 90;
+    camera.position.y = 28;
+
+    // Animate the scene
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Add control sliders for each child object (mesh)
+    function addControlsForChild(child, name) {
+      const controlsDiv = document.getElementById('controls');
+
+      // Create a new section for each child
+      const childControlsDiv = document.createElement('div');
+      childControlsDiv.className = 'control-group';
+      childControlsDiv.innerHTML = `<h3>${name}</h3>`;
+
+      // Position Controls
+      ['x', 'y', 'z'].forEach(axis => {
+        childControlsDiv.innerHTML += `<label>Position ${axis.toUpperCase()}: <input type="range" id="pos_${child.id}_${axis}" min="-10" max="10" step="0.1" value="${child.position[axis]}"></label>`;
+      });
+
+      // Rotation Controls
+      ['x', 'y', 'z'].forEach(axis => {
+        childControlsDiv.innerHTML += `<label>Rotation ${axis.toUpperCase()}: <input type="range" id="rot_${child.id}_${axis}" min="0" max="6.28" step="0.01" value="${child.rotation[axis]}"></label>`;
+      });
+
+      // Scale Controls (uniform scale)
+      childControlsDiv.innerHTML += `<label>Scale: <input type="range" id="scale_${child.id}" min="0.1" max="5" step="0.1" value="${child.scale.x}"></label>`;
+
+      // Append the new controls section
+      controlsDiv.appendChild(childControlsDiv);
+
+      // Event Listeners to Update the Model's Attributes in Real-Time
+      ['x', 'y', 'z'].forEach(axis => {
+        document.getElementById(`pos_${child.id}_${axis}`).addEventListener('input', (event) => {
+          child.position[axis] = parseFloat(event.target.value);
+        });
+      });
+
+      ['x', 'y', 'z'].forEach(axis => {
+        document.getElementById(`rot_${child.id}_${axis}`).addEventListener('input', (event) => {
+          child.rotation[axis] = parseFloat(event.target.value);
+        });
+      });
+
+      document.getElementById(`scale_${child.id}`).addEventListener('input', (event) => {
+        const scale = parseFloat(event.target.value);
+        child.scale.set(scale, scale, scale);
+      });
+    }
+
+    // Resize handling
+    window.addEventListener('resize', function () {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
+</html>

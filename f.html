@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System with 3D Models and Lighting</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <!-- Add GLTFLoader script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Load Sun Model
+        const loader = new THREE.GLTFLoader();
+        loader.load('Sun.glb', gltf => {
+            const sun = gltf.scene;
+            sun.scale.set(.02, .02, .02);  // Adjust the scale based on your model size
+            scene.add(sun);
+
+            // Set sun's rotation speed
+            sun.userData = {
+                rotationSpeed: 0.005  // Rotation speed for the Sun
+            };
+
+            // Add light source to illuminate the scene
+            const ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1); // White directional light
+            directionalLight.position.set(20, 20, 20).normalize();
+            scene.add(directionalLight);
+
+            // Create planets (name, model path, distance from sun, speed)
+            const planetsData = [
+                { name: "Mercury", model: "Mercury.glb", distance: 55, speed: 0.02, axisRotationSpeed: 0.01 },
+                { name: "Venus", model: "Venus.glb", distance: 35, speed: 0.015, axisRotationSpeed: 0.005 },
+                { name: "Earth", model: "Earth.glb", distance: 45, speed: 0.01, axisRotationSpeed: 0.01 },
+                { name: "Mars", model: "Mars.glb", distance: 95, speed: 0.008, axisRotationSpeed: 0.008 },
+            ];
+
+            const planets = [];
+
+            // Load each planet's 3D model
+            planetsData.forEach(data => {
+                loader.load(data.model, gltf => {
+                    const planet = gltf.scene;
+                    planet.scale.set(0.01, 0.01, 0.01);  // Adjust the scale based on the model size
+                    scene.add(planet);
+
+                    planet.userData = {
+                        distance: data.distance,
+                        speed: data.speed,
+                        axisRotationSpeed: data.axisRotationSpeed,  // Rotation speed around its own axis
+                        angle: Math.random() * Math.PI * 2,
+                        pathPoints: [],
+                        pathLine: null
+                    };
+
+                    planets.push(planet);
+                }, undefined, error => {
+                    console.error('Error loading model:', error);
+                });
+            });
+
+            // Set camera position
+            camera.position.z = 120;
+            camera.position.y = 20;
+
+            // Function to update the orbit line progressively
+            function updateOrbitLine(planet) {
+                const { pathPoints } = planet.userData;
+
+                // Create geometry from path points
+                const geometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+
+                // If a line exists, remove it
+                if (planet.userData.pathLine) {
+                    scene.remove(planet.userData.pathLine);
+                }
+
+                // Create a new line using the updated geometry
+                const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+                const orbitLine = new THREE.Line(geometry, material);
+                scene.add(orbitLine);
+
+                // Store the line so we can remove it later
+                planet.userData.pathLine = orbitLine;
+            }
+
+            // Animate the scene
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Rotate the Sun on its axis
+                sun.rotation.y += sun.userData.rotationSpeed;
+
+                // Update each planet's position and rotation
+                planets.forEach(planet => {
+                    if (planet.userData) {  // Ensure the planet has been loaded
+                        // Update orbit
+                        planet.userData.angle += planet.userData.speed;  // Update angle for each planet
+                        const majorAxis = planet.userData.distance;  // Distance along x-axis
+                        const minorAxis = majorAxis * 0.8;  // Slightly elliptical orbit
+
+                        // Update position based on angle
+                        planet.position.x = majorAxis * Math.cos(planet.userData.angle);
+                        planet.position.z = minorAxis * Math.sin(planet.userData.angle);
+
+                        // Rotate the planet on its axis
+                        planet.rotation.y += planet.userData.axisRotationSpeed;  // Rotation around its own axis
+
+                        // Add current position to path points
+                        planet.userData.pathPoints.push(new THREE.Vector3(planet.position.x, planet.position.y, planet.position.z));
+
+                        // Update the orbit line progressively
+                        updateOrbitLine(planet);
+                    }
+                });
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Resize renderer on window resize
+            window.addEventListener('resize', () => {
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                renderer.setSize(width, height);
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+            });
+        }, undefined, error => {
+            console.error('Error loading Sun model:', error);
+        });
+    </script>
+</body>
+</html>

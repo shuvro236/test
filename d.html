@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System with 3D Models</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <!-- Add GLTFLoader script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create Sun
+        const sunGeometry = new THREE.SphereGeometry(2, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        scene.add(sun);
+
+        // GLTF Loader for planets
+        const loader = new THREE.GLTFLoader();
+
+        // Create planets (name, model path, distance from sun, speed)
+        const planetsData = [
+            { name: "Mercury", model: "Mercury.glb", distance: 3, speed: 0.02 },
+            { name: "Venus", model: "Venus.glb", distance: 5, speed: 0.015 },
+            { name: "Earth", model: "Earth.glb", distance: 7, speed: 0.01 },
+            { name: "Mars", model: "Mars.glb", distance: 9, speed: 0.008 },
+            //{ name: "Jupiter", model: "path/to/jupiter.glb", distance: 12, speed: 0.006 },
+            //{ name: "Saturn", model: "path/to/saturn.glb", distance: 15, speed: 0.005 },
+            //{ name: "Uranus", model: "path/to/uranus.glb", distance: 18, speed: 0.004 },
+            //{ name: "Neptune", model: "path/to/neptune.glb", distance: 21, speed: 0.003 }
+        ];
+
+        const planets = [];
+
+        // Load each planet's 3D model
+        planetsData.forEach(data => {
+            loader.load(data.model, gltf => {
+                const planet = gltf.scene;
+                planet.scale.set(.001, .001, .001);  // Adjust the scale based on the model size
+                planet.position.y = -1;
+                scene.add(planet);
+
+                planet.userData = {
+                    distance: data.distance,
+                    speed: data.speed,
+                    angle: Math.random() * Math.PI * 2,
+                    pathPoints: [],
+                    pathLine: null
+                };
+                
+                planets.push(planet);
+            });
+        });
+
+        // Set camera position
+        camera.position.z = 50;
+        camera.position.y = 10;
+
+        // Function to update the orbit line progressively
+        function updateOrbitLine(planet) {
+            const { pathPoints, distance } = planet.userData;
+
+            // Create geometry from path points
+            const geometry = new THREE.BufferGeometry().setFromPoints(pathPoints);
+
+            // If a line exists, remove it
+            if (planet.userData.pathLine) {
+                scene.remove(planet.userData.pathLine);
+            }
+
+            // Create a new line using the updated geometry
+            const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const orbitLine = new THREE.Line(geometry, material);
+            scene.add(orbitLine);
+
+            // Store the line so we can remove it later
+            planet.userData.pathLine = orbitLine;
+        }
+
+        // Animate the scene
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update each planet's position and path
+            planets.forEach(planet => {
+                planet.userData.angle += planet.userData.speed;  // Update angle for each planet
+                const majorAxis = planet.userData.distance;  // Distance along x-axis
+                const minorAxis = majorAxis * 0.8;  // Slightly elliptical orbit
+
+                // Update position based on angle
+                planet.position.x = majorAxis * Math.cos(planet.userData.angle);
+                planet.position.z = minorAxis * Math.sin(planet.userData.angle);
+
+                // Add current position to path points
+                planet.userData.pathPoints.push(new THREE.Vector3(planet.position.x, planet.position.y, planet.position.z));
+
+                // Update the orbit line progressively
+                updateOrbitLine(planet);
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Resize renderer on window resize
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Three.js GLB Child Object Names</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
+
+  <script>
+    let model;
+    const labels = [];  // Store the labels
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Lighting
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 10, 10).normalize();
+    scene.add(light);
+
+    // Load the GLB model
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      '1.glb',
+      function (gltf) {
+        model = gltf.scene;
+        scene.add(model);
+
+        // Traverse the model's children and create labels for each
+        model.traverse(function (child) {
+          if (child.isMesh) {
+            const childName = child.name || `Unnamed Child (ID: ${child.id})`;
+            console.log(`Child: ${childName}`);
+            createLabel(child, childName);  // Create label for each child
+          }
+        });
+      },
+      undefined,
+      function (error) {
+        console.error(error);
+      }
+    );
+
+    // Camera position
+    camera.position.z = 75;
+    camera.position.y = 10;
+
+    // Function to create 3D label for a child object
+    function createLabel(child, name) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = 'Bold 20px Arial';
+      context.fillStyle = 'white';
+      context.fillText(name, 0, 20);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+      const sprite = new THREE.Sprite(spriteMaterial);
+
+      // Position the sprite near the object
+      sprite.position.copy(child.position.clone().add(new THREE.Vector3(0, 5, 0))); // Offset above the object
+      sprite.scale.set(10, 5, 1);  // Adjust the size as needed
+      scene.add(sprite);
+
+      // Store the label and child for future updates
+      labels.push({ sprite, child });
+    }
+
+    // Animate the scene
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Update label positions to follow objects
+      labels.forEach(({ sprite, child }) => {
+        sprite.position.copy(child.position.clone().add(new THREE.Vector3(0, 5, 0)));
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Resize handling
+    window.addEventListener('resize', function () {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+    });
+  </script>
+</body>
+</html>
